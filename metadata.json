@@ -1,0 +1,7 @@
+{
+  "name": "AcquiStack AI",
+  "description": "An AI-powered M&A Copilot for structuring SBA-compliant acquisitions. This application helps users design and validate acquisition capital stacks for small businesses using a suite of specialized AI agents.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
