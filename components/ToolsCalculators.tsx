@@ -6,6 +6,7 @@ import PandLAdjuster from './calculators/PandLAdjuster';
 import SBAForm413 from './calculators/SBAForm413';
 import QoEAnalyzer from './calculators/QoEAnalyzer';
 import BusinessValuationCalculator from './calculators/BusinessValuationCalculator';
+import SDECalculator from './calculators/SDECalculator';
 
 const ToolsCalculators: React.FC = () => {
   return (
@@ -23,6 +24,10 @@ const ToolsCalculators: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         <DSCRCalculator />
         <PandLAdjuster />
+      </div>
+
+      <div className="pt-8 mt-8 border-t border-gray-200 dark:border-gray-700">
+        <SDECalculator />
       </div>
 
       <div className="pt-8 mt-8 border-t border-gray-200 dark:border-gray-700">
