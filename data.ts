@@ -1,6 +1,89 @@
 
-import { Deal, Comment, Task, SharedDocument, AffiliateLender, User } from './types';
-import { initialDiligenceChecklist } from './constants';
+import { Deal, Comment, Task, SharedDocument, AffiliateLender, User, DiligenceItem, DiligenceParty } from './types';
+
+const createDiligenceItems = (stage: string, party: DiligenceParty, items: string[]): DiligenceItem[] => {
+    return items.map((text, index) => ({
+        id: Math.random(), // In a real app, use a better ID system
+        stage,
+        party,
+        text,
+        status: 'Pending',
+        linkedDocumentId: null,
+        assigneeId: null
+    }));
+};
+
+export const initialDiligenceChecklist: DiligenceItem[] = [
+    ...createDiligenceItems('Stage 0: Intake', 'Buyer', [
+        'Personal Financial Statement (PFS)',
+        'Credit score check (minimum 680 preferred)',
+        'Liquidity verification (10-15% of target EV)',
+        'Industry experience / resume',
+        'Target business profile (industry, size, location)',
+        'Timeline expectations',
+        'NDA executed',
+        'Engagement agreement signed',
+        'Initial consultation call scheduled'
+    ]),
+    ...createDiligenceItems('Stage 1: Financeability', 'Internal', [
+        'Pull & review personal tax returns (2 years)',
+        'Run preliminary DSCR scenarios at 1.25× and 1.5×',
+        'Calculate maximum supportable loan amount',
+        'Assess equity position (cash + seller note capacity)',
+        'Generate 2-page pre-qual memo',
+        'Identify any red flags (credit, liquidity, experience)',
+        'Present financeability range to buyer',
+        'Deliver "bank-ready documents checklist"'
+    ]),
+    ...createDiligenceItems('Stage 3: Diligence & LOI', 'Seller', [
+        'Business tax returns (3 years)',
+        'Personal tax returns (if pass-through entity, 3 years)',
+        'Interim P&L and Balance Sheet (YTD)',
+        'Monthly P&Ls (trailing 24 months)',
+        'Bank statements (12 months, all accounts)',
+        'A/R aging report',
+        'A/P aging report',
+        'Customer list with revenue by customer',
+        'Contracts / recurring revenue agreements',
+        'Lease agreements (facilities, equipment)',
+        'Employee roster with salaries',
+        'Insurance policies (GL, WC, etc.)',
+        'Cap table / ownership structure',
+        'Licenses and permits'
+    ]),
+    ...createDiligenceItems('Stage 4: Lender Packaging', 'Internal', [
+        'Executive summary (1-page deal overview)',
+        'DSCR calculation memo with assumptions',
+        'Normalized SDE / add-backs schedule',
+        'Valuation memo with market comps',
+        'Customer concentration analysis',
+        'Working capital peg calculation',
+        'Risk assessment with mitigants',
+        'SBA Form 159 (fee disclosure) - completed',
+        'Buyer PFS and resume',
+        'Seller financials (tax returns, P&Ls)',
+        'Signed LOI',
+        'NDA (if applicable)',
+        'Lender intro email with doc index'
+    ]),
+    ...createDiligenceItems('Stage 5: Underwriting to Close', 'Lender', [
+        'SBA loan authorization / commitment letter',
+        'IRS Form 4506-C (tax transcript authorization)',
+        'Life insurance application and approval',
+        'Landlord consent / estoppel certificate',
+        'UCC lien search',
+        'Corporate resolution (buyer entity)',
+        'Operating agreement / bylaws',
+        'Final loan documents package',
+        'Hazard insurance binders',
+        'Final purchase agreement (APA)',
+        'Bill of sale',
+        'Assignment of contracts',
+        'Non-compete agreement',
+        'Transition services agreement (if applicable)',
+        'Closing settlement statement'
+    ]),
+].map((item, index) => ({ ...item, id: index + 1 }));
 
 export const initialDeals: Deal[] = [
   {

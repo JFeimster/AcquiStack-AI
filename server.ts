@@ -1,6 +1,5 @@
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { SchemaValidator } from './schema';
 import { 
   runAgent, 
@@ -27,8 +26,10 @@ import { Deal, Comment, Task, SharedDocument } from './types';
 process.env.API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
 
 async function startServer() {
+  console.log("Starting server...");
   const app = express();
   const PORT = 3000;
+  console.log(`Environment: ${process.env.NODE_ENV}`);
 
   // Middleware for parsing JSON requests with increased limit for base64 PDFs
   app.use(express.json({ limit: '100mb' }));
@@ -344,6 +345,7 @@ async function startServer() {
 
   // Mount Vite middleware in development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -363,4 +365,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("Server failed to start:", err);
+  process.exit(1);
+});

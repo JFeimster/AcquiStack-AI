@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs"
+    "start": "NODE_ENV=production node dist/server.cjs"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -15,7 +15,8 @@
     "marked": "^18.0.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-dropzone": "^14.3.8"
+    "react-dropzone": "^14.3.8",
+    "vite": "^6.2.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
@@ -23,7 +24,6 @@
     "@vitejs/plugin-react": "^5.0.0",
     "esbuild": "^0.28.1",
     "tsx": "^4.23.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "typescript": "~5.8.2"
   }
 }
