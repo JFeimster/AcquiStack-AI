@@ -20,7 +20,7 @@ import {
   initialComments, 
   initialTasks, 
   initialDocuments 
-} from './constants';
+} from './data';
 import { Deal, Comment, Task, SharedDocument } from './types';
 
 // Ensure the standard API key is set in process.env for geminiService

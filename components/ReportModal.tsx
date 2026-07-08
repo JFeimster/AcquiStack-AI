@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Deal, SharedDocument } from '../types';
 import { SyndicateEngineIcon, PushToCloudIcon } from './icons';
-import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
+import { marked } from 'marked';
 
 interface ReportModalProps {
   isOpen: boolean;

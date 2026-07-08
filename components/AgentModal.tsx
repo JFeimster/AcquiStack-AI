@@ -2,7 +2,7 @@ import React, { useState, FormEvent, useEffect } from 'react';
 import { AgentModule, AgentResult } from '../types';
 import { SalesforceIcon, PushToCloudIcon } from './icons';
 // A simple markdown-to-html converter
-import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
+import { marked } from 'marked';
 
 interface AgentModalProps {
   agent: AgentModule;

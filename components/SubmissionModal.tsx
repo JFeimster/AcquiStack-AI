@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AgentModule, AgentResult, Deal } from '../types';
 import { runAgent } from '../actions/geminiActions';
 import { AGENT_MODULES } from '../constants';
-import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
+import { marked } from 'marked';
 import { SpinnerIcon, PaperAirplaneIcon } from './icons';
 
 interface SubmissionModalProps {

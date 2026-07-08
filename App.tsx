@@ -3,7 +3,9 @@
 
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { AGENT_MODULES, WORKFLOW_MODULES, initialDeals, initialComments, initialTasks, dealRoomUsers, currentUser as initialUser, initialDocuments, initialDiligenceChecklist, AFFILIATE_LENDERS } from './constants';
+import { AGENT_MODULES, WORKFLOW_MODULES, initialDiligenceChecklist } from './constants';
+import { initialDeals, initialComments, initialTasks, dealRoomUsers, initialDocuments, AFFILIATE_LENDERS } from './data';
+const initialUser = dealRoomUsers[0];
 import { AgentModule, Deal, AgentResult, DocumentAnalysisResult, Comment, Task, User, SharedDocument, VDRChatMessage, UserRole, AIRecommendation, WorkflowModule, DiligenceItem, Scenario } from './types';
 import { runAgent, analyzeDocument, analyzeVDRDocument, queryVDR, suggestTasksFromDocument, analyzeCommentForRisks, getAIRecommendations, suggestDealTasks } from './actions/geminiActions';
 import { 

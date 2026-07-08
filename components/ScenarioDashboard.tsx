@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Scenario, ChartDataPoint } from '../types';
 import { CapitalStackBuilderIcon, CheckCircleIcon, TrashIcon } from './icons';
-import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
+import { marked } from 'marked';
 import CapitalStackChart from './CapitalStackChart';
 
 interface ScenarioDashboardProps {
