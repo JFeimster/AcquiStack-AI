@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { WorkflowModule, Deal, AgentResult, AgentModule } from '../types';
-import { runAgent as runAgentService } from '../services/geminiService';
+import { runAgent as runAgentService } from '../actions/geminiActions';
 import { AGENT_MODULES } from '../constants';
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
 import { SpinnerIcon, CheckCircleIcon, XCircleIcon, MinusCircleIcon, ArrowRightCircleIcon } from './icons';

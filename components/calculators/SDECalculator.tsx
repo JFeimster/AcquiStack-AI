@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Info, 
   HelpCircle, 
@@ -8,10 +8,203 @@ import {
   CheckCircle, 
   AlertTriangle, 
   Calculator, 
-  FileText 
+  Sparkles,
+  Plus,
+  RefreshCw,
+  ArrowRight
 } from 'lucide-react';
+import { Deal } from '../../types';
 
-const SDECalculator: React.FC = () => {
+interface SDECalculatorProps {
+  currentDeal?: Deal | null;
+}
+
+interface BenefitSuggestion {
+  category: string;
+  field: 'ownerSalary' | 'ownerBenefits' | 'personalExpenses' | 'oneTimeExpenses' | 'otherAddbacks';
+  name: string;
+  amount: number;
+  description: string;
+}
+
+// Industry-specific typical discretionary add-backs
+const INDUSTRY_BENEFIT_SUGGESTIONS: Record<string, BenefitSuggestion[]> = {
+  'Home Services': [
+    {
+      category: 'Vehicle Perk',
+      field: 'personalExpenses',
+      name: 'Owner Personal/Business Truck Lease',
+      amount: 9500,
+      description: 'Typical dual-use vehicle lease, fuel, and insurance paid through the business.'
+    },
+    {
+      category: 'Owner Health',
+      field: 'ownerBenefits',
+      name: 'Family Health & Life Premiums',
+      amount: 14000,
+      description: 'Owner-operator and spouse dental, health, and key-person insurance premiums.'
+    },
+    {
+      category: 'Family Payroll',
+      field: 'otherAddbacks',
+      name: 'Inactive Family Member Wages',
+      amount: 32000,
+      description: 'Discretionary wage paid to family members who do not perform critical duties.'
+    },
+    {
+      category: 'Telecom/Home Office',
+      field: 'personalExpenses',
+      name: 'Cell Phones & Home Utilities',
+      amount: 2400,
+      description: 'Personal mobile lines and home broadband expensed under corporate utility codes.'
+    }
+  ],
+  'SaaS': [
+    {
+      category: 'Discretionary Subscriptions',
+      field: 'otherAddbacks',
+      name: 'Non-Essential Software/Cloud Perks',
+      amount: 6500,
+      description: 'High-tier personal productivity packages, developer perks, or non-essential server test beds.'
+    },
+    {
+      category: 'Home Office',
+      field: 'personalExpenses',
+      name: 'High-end Hardware & Tech Stipends',
+      amount: 5200,
+      description: 'Personal tech gadgets, office ergonomic setups, and phone bills paid out of operations.'
+    },
+    {
+      category: 'Travel & Leisure',
+      field: 'personalExpenses',
+      name: 'Conference & Leisure Hybrid Travel',
+      amount: 8500,
+      description: 'Travel to industry gatherings that integrated significant personal vacation/dining expenses.'
+    },
+    {
+      category: 'Key-Person Insurance',
+      field: 'ownerBenefits',
+      name: 'Founder Key-Person Life Premium',
+      amount: 4500,
+      description: 'Corporate premium payments on life insurance policies benefiting the owner\'s estate.'
+    }
+  ],
+  'Manufacturing': [
+    {
+      category: 'Machinery Overhaul',
+      field: 'oneTimeExpenses',
+      name: 'Non-Recurring Facility Repair',
+      amount: 22000,
+      description: 'One-time specialized machine overhaul or emergency roof repair that does not repeat.'
+    },
+    {
+      category: 'Executive Benefits',
+      field: 'ownerBenefits',
+      name: 'Executive Medical Reimbursement',
+      amount: 16500,
+      description: 'Discretionary supplemental health plans and executive physicals for the primary owner.'
+    },
+    {
+      category: 'Compliance Setup',
+      field: 'oneTimeExpenses',
+      name: 'OSHA One-time Upgrade Fees',
+      amount: 14000,
+      description: 'One-time consultancy and equipment retrofitting to comply with specialized local codes.'
+    },
+    {
+      category: 'Company Truck',
+      field: 'personalExpenses',
+      name: 'Owner Heavy Duty Vehicle Perks',
+      amount: 12000,
+      description: 'Owner\'s executive utility truck lease and associated maintenance costs.'
+    }
+  ],
+  'Retail': [
+    {
+      category: 'Owner Meals/Groceries',
+      field: 'personalExpenses',
+      name: 'Personal Meals & Store Supplies',
+      amount: 7200,
+      description: 'Personal travel meals, supplier lunches, and local groceries ran through trade accounts.'
+    },
+    {
+      category: 'Mobile Plans',
+      field: 'personalExpenses',
+      name: 'Family Cellular Plans',
+      amount: 3600,
+      description: 'Family phone and tablet lines structured under the corporate telecommunication plan.'
+    },
+    {
+      category: 'POS Migration',
+      field: 'oneTimeExpenses',
+      name: 'One-time POS Legacy Software Migration',
+      amount: 8500,
+      description: 'One-time cost to upgrade internal checkout terminals and migrate customer profiles.'
+    },
+    {
+      category: 'Association Dues',
+      field: 'otherAddbacks',
+      name: 'Discretionary Trade Association Dues',
+      amount: 2500,
+      description: 'Owner\'s personal trade guilds, civic organization memberships, and country club dues.'
+    }
+  ],
+  'Healthcare': [
+    {
+      category: 'CME Training',
+      field: 'otherAddbacks',
+      name: 'Discretionary CME & Retreat Travel',
+      amount: 7500,
+      description: 'Medical continuing education courses combined with private leisure travel and stays.'
+    },
+    {
+      category: 'Liability Excess',
+      field: 'ownerBenefits',
+      name: 'Excess Premium Malpractice Plan',
+      amount: 11000,
+      description: 'Discretionary supplemental insurance premium payouts tailored to the founding practitioner.'
+    },
+    {
+      category: 'Executive Auto',
+      field: 'personalExpenses',
+      name: 'Physician Luxury Car Lease',
+      amount: 10500,
+      description: 'Lease and fuel costs for practitioner\'s luxury commuter sedan.'
+    }
+  ],
+  'General / Default': [
+    {
+      category: 'Owner Health',
+      field: 'ownerBenefits',
+      name: 'Owner Personal Medical Premiums',
+      amount: 12000,
+      description: 'Standard health insurance premium for the owner and dependent family.'
+    },
+    {
+      category: 'Auto Perk',
+      field: 'personalExpenses',
+      name: 'Discretionary Car Allowance',
+      amount: 7500,
+      description: 'Corporate automobile reimbursement for personal commuting.'
+    },
+    {
+      category: 'Mobile & Tech',
+      field: 'personalExpenses',
+      name: 'Personal Phones & Home Utilities',
+      amount: 3000,
+      description: 'Owner cellular, internet, and miscellaneous tech accessories.'
+    },
+    {
+      category: 'One-time Legal',
+      field: 'oneTimeExpenses',
+      name: 'One-time Trademark Registration',
+      amount: 5000,
+      description: 'Legal fees for registering intellectual property assets during rebranding.'
+    }
+  ]
+};
+
+const SDECalculator: React.FC<SDECalculatorProps> = ({ currentDeal = null }) => {
   // Navigation & configuration state
   const [startType, setStartType] = useState<'ebitda' | 'netIncome'>('ebitda');
   
@@ -45,9 +238,70 @@ const SDECalculator: React.FC = () => {
   // Active help tooltip state
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
+  // Industry selection override for AI suggestions
+  const [selectedIndustry, setSelectedIndustry] = useState<string>('General / Default');
+
+  // Load baseline values from the current deal if available
+  useEffect(() => {
+    if (currentDeal) {
+      if (currentDeal.ebitda_ttm) {
+        setEbitdaInput(currentDeal.ebitda_ttm);
+      } else {
+        setEbitdaInput('');
+      }
+
+      // Map the industry to standard lookup categories
+      const dealIndustry = currentDeal.industry;
+      if (dealIndustry.includes('Service') || dealIndustry.includes('Home')) {
+        setSelectedIndustry('Home Services');
+      } else if (dealIndustry.includes('SaaS') || dealIndustry.includes('Tech') || dealIndustry.includes('Software')) {
+        setSelectedIndustry('SaaS');
+      } else if (dealIndustry.includes('Mfg') || dealIndustry.includes('Manufacturing') || dealIndustry.includes('Industrial')) {
+        setSelectedIndustry('Manufacturing');
+      } else if (dealIndustry.includes('Retail') || dealIndustry.includes('Food') || dealIndustry.includes('Store')) {
+        setSelectedIndustry('Retail');
+      } else if (dealIndustry.includes('Medical') || dealIndustry.includes('Health') || dealIndustry.includes('Care')) {
+        setSelectedIndustry('Healthcare');
+      } else {
+        setSelectedIndustry('General / Default');
+      }
+
+      // Pre-populate target loan as 90% of purchase price if target loan is empty
+      if (currentDeal.purchase_price) {
+        setTargetLoan(Math.round(currentDeal.purchase_price * 0.90));
+      }
+    }
+  }, [currentDeal]);
+
   // Toggle tooltip helper
   const toggleTooltip = (tooltipId: string) => {
     setActiveTooltip(activeTooltip === tooltipId ? null : tooltipId);
+  };
+
+  // Get recommendations list based on selected industry
+  const suggestedBenefits = useMemo(() => {
+    return INDUSTRY_BENEFIT_SUGGESTIONS[selectedIndustry] || INDUSTRY_BENEFIT_SUGGESTIONS['General / Default'];
+  }, [selectedIndustry]);
+
+  // One-click category suggestion application
+  const applySuggestion = (sug: BenefitSuggestion) => {
+    if (sug.field === 'ownerSalary') {
+      setOwnerSalary(prev => (Number(prev) || 0) + sug.amount);
+    } else if (sug.field === 'ownerBenefits') {
+      setOwnerBenefits(prev => (Number(prev) || 0) + sug.amount);
+    } else if (sug.field === 'personalExpenses') {
+      setPersonalExpenses(prev => (Number(prev) || 0) + sug.amount);
+    } else if (sug.field === 'oneTimeExpenses') {
+      setOneTimeExpenses(prev => (Number(prev) || 0) + sug.amount);
+    } else if (sug.field === 'otherAddbacks') {
+      setOtherAddbacks(prev => (Number(prev) || 0) + sug.amount);
+    }
+  };
+
+  const autoFillAllSuggested = () => {
+    suggestedBenefits.forEach(sug => {
+      applySuggestion(sug);
+    });
   };
 
   // Intermediate calculations
@@ -116,7 +370,6 @@ const SDECalculator: React.FC = () => {
     const actualDscr = annualDebtService > 0 ? availableCashForDebt / annualDebtService : 0;
 
     // Maximum loan sizing based on Cash Available and Min DSCR
-    // availableCashForDebt / minDscr = Max Annual Debt Service
     const maxAnnualDebtService = availableCashForDebt / minDscr;
     const maxMonthlyPayment = maxAnnualDebtService / 12;
     let maxSbaLoan = 0;
@@ -171,6 +424,24 @@ const SDECalculator: React.FC = () => {
     }
   }, [targetLoan, sbaMetrics.actualDscr, requiredDscr]);
 
+  // Custom Chart Visualization dimensions & percentages
+  const chartProps = useMemo(() => {
+    const maxVal = Math.max(calculatedEbitda + totalAddBacks, normalizedSde, 50000);
+    
+    const ebitdaPercent = Math.max(5, (calculatedEbitda / maxVal) * 100);
+    const addBackPercent = Math.max(2, (totalAddBacks / maxVal) * 100);
+    const subtractionPercent = Math.max(2, (totalSubtractions / maxVal) * 100);
+    const sdePercent = Math.max(5, (normalizedSde / maxVal) * 100);
+
+    return {
+      ebitdaPercent,
+      addBackPercent,
+      subtractionPercent,
+      sdePercent,
+      maxVal
+    };
+  }, [calculatedEbitda, totalAddBacks, totalSubtractions, normalizedSde]);
+
   const baseInputClasses = "block w-full px-3 py-2 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-brand-blue-500 focus:border-brand-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:placeholder-gray-400 dark:text-white dark:focus:ring-brand-blue-500 dark:focus:border-brand-blue-500 transition-colors";
 
   return (
@@ -214,6 +485,80 @@ const SDECalculator: React.FC = () => {
             Start with Net Income
           </button>
         </div>
+      </div>
+
+      {/* AI-driven Lookup Recommendations banner */}
+      <div className="bg-gradient-to-r from-brand-blue-50/70 to-indigo-50/40 dark:from-brand-blue-950/20 dark:to-indigo-950/10 border border-brand-blue-100/50 dark:border-brand-blue-900/30 rounded-xl p-4.5 mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-start space-x-3">
+          <div className="p-2 bg-brand-blue-500 text-white rounded-lg animate-pulse">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h4 className="text-sm font-bold text-gray-900 dark:text-white">AI Add-Back Finder</h4>
+              <span className="text-2xs font-extrabold px-2 py-0.5 bg-brand-blue-100 text-brand-blue-800 dark:bg-brand-blue-900 dark:text-brand-blue-300 rounded-full">
+                Active
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+              Suggested common seller discretionary cash write-offs for <span className="font-bold text-brand-blue-600 dark:text-brand-blue-400">{selectedIndustry}</span> targets. Click any item to add it instantly to your SDE stack.
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <select
+            id="sde-industry-select"
+            value={selectedIndustry}
+            onChange={(e) => setSelectedIndustry(e.target.value)}
+            className="px-2.5 py-1.5 text-xs text-gray-800 bg-white rounded-lg border border-gray-300 focus:ring-brand-blue-500 focus:border-brand-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white font-semibold"
+          >
+            {Object.keys(INDUSTRY_BENEFIT_SUGGESTIONS).map((ind) => (
+              <option key={ind} value={ind}>{ind}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            id="sde-autofill-all"
+            onClick={autoFillAllSuggested}
+            className="px-3 py-1.5 bg-brand-blue-600 hover:bg-brand-blue-700 text-white text-xs font-semibold rounded-lg flex items-center space-x-1 shadow-xs transition-all"
+          >
+            <span>Apply All Standards</span>
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Suggested categories list */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {suggestedBenefits.map((sug, idx) => (
+          <div 
+            key={idx}
+            onClick={() => applySuggestion(sug)}
+            className="p-3.5 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl hover:border-brand-blue-400 dark:hover:border-brand-blue-500 hover:shadow-xs cursor-pointer transition-all flex flex-col justify-between group text-left"
+          >
+            <div>
+              <div className="flex justify-between items-start">
+                <span className="text-3xs font-extrabold uppercase tracking-wider text-brand-blue-500 bg-brand-blue-50 dark:bg-brand-blue-950/50 px-2 py-0.5 rounded">
+                  {sug.category}
+                </span>
+                <span className="text-xs font-mono font-bold text-green-600 dark:text-green-400 group-hover:scale-105 transition-transform">
+                  +{formatCurrency(sug.amount)}
+                </span>
+              </div>
+              <h5 className="text-xs font-bold text-gray-950 dark:text-gray-100 mt-2 truncate">{sug.name}</h5>
+              <p className="text-3xs text-gray-400 dark:text-gray-500 mt-1 line-clamp-2 leading-tight">
+                {sug.description}
+              </p>
+            </div>
+            <div className="mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-900/50 flex justify-between items-center text-3xs text-gray-400 dark:text-gray-500">
+              <span>Adds to: {sug.field.replace('owner', 'Owner ').replace('personal', 'Personal ')}</span>
+              <span className="text-brand-blue-500 font-bold group-hover:translate-x-1 transition-transform inline-flex items-center gap-0.5">
+                Add <ArrowRight className="w-2.5 h-2.5" />
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -697,6 +1042,115 @@ const SDECalculator: React.FC = () => {
 
         {/* Right column: Sticky live results & visualization dashboard */}
         <div className="lg:col-span-5 lg:sticky lg:top-6 space-y-6">
+          
+          {/* Visual stacked / waterfall progress chart from EBITDA to SDE */}
+          <div id="sde-reconciliation-chart" className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-xs space-y-4">
+            <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center">
+              <Sparkles className="w-4.5 h-4.5 text-brand-blue-500 mr-2" />
+              EBITDA to SDE Cash Flow Breakdown
+            </h4>
+            
+            <div className="space-y-4">
+              {/* EBITDA bar */}
+              <div>
+                <div className="flex justify-between items-center text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">
+                  <span>Reported EBITDA</span>
+                  <span className="font-mono text-gray-950 dark:text-white">{formatCurrency(calculatedEbitda)}</span>
+                </div>
+                <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-4 overflow-hidden flex">
+                  <div 
+                    style={{ width: `${chartProps.ebitdaPercent}%` }}
+                    className="bg-brand-blue-500 h-full rounded-full transition-all duration-500"
+                  ></div>
+                </div>
+              </div>
+
+              {/* Add Backs breakdown bar chart */}
+              {totalAddBacks > 0 && (
+                <div>
+                  <div className="flex justify-between items-center text-xs font-bold text-green-600 dark:text-green-400 mb-1">
+                    <span>(+) Owner Discretionary Add-Backs</span>
+                    <span className="font-mono">{formatCurrency(totalAddBacks)}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-4 overflow-hidden flex space-x-0.5">
+                    {/* Owner Salary */}
+                    {ownerSalary > 0 && (
+                      <div 
+                        style={{ width: `${Math.max(5, (Number(ownerSalary) / chartProps.maxVal) * 100)}%` }}
+                        className="bg-green-500 h-full transition-all duration-500"
+                        title={`Salary: ${formatCurrency(Number(ownerSalary))}`}
+                      ></div>
+                    )}
+                    {/* Owner Benefits */}
+                    {ownerBenefits > 0 && (
+                      <div 
+                        style={{ width: `${Math.max(5, (Number(ownerBenefits) / chartProps.maxVal) * 100)}%` }}
+                        className="bg-emerald-400 h-full transition-all duration-500"
+                        title={`Benefits: ${formatCurrency(Number(ownerBenefits))}`}
+                      ></div>
+                    )}
+                    {/* Perks / Personal expenses */}
+                    {personalExpenses > 0 && (
+                      <div 
+                        style={{ width: `${Math.max(5, (Number(personalExpenses) / chartProps.maxVal) * 100)}%` }}
+                        className="bg-teal-400 h-full transition-all duration-500"
+                        title={`Perks: ${formatCurrency(Number(personalExpenses))}`}
+                      ></div>
+                    )}
+                    {/* One time */}
+                    {oneTimeExpenses > 0 && (
+                      <div 
+                        style={{ width: `${Math.max(5, (Number(oneTimeExpenses) / chartProps.maxVal) * 105)}%` }}
+                        className="bg-green-300 h-full transition-all duration-500"
+                        title={`One-time: ${formatCurrency(Number(oneTimeExpenses))}`}
+                      ></div>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-1.5 text-3xs font-semibold text-gray-500">
+                    {ownerSalary > 0 && <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span>Salary</span>}
+                    {ownerBenefits > 0 && <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-400 mr-1"></span>Benefits</span>}
+                    {personalExpenses > 0 && <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-teal-400 mr-1"></span>Perks/Auto</span>}
+                    {oneTimeExpenses > 0 && <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-green-300 mr-1"></span>One-time</span>}
+                  </div>
+                </div>
+              )}
+
+              {/* Deductions bar if present */}
+              {totalSubtractions > 0 && (
+                <div>
+                  <div className="flex justify-between items-center text-xs font-bold text-red-500 dark:text-red-400 mb-1">
+                    <span>(-) Operating/Co-Owner Deductions</span>
+                    <span className="font-mono">-{formatCurrency(totalSubtractions)}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-4 overflow-hidden flex">
+                    <div 
+                      style={{ width: `${chartProps.subtractionPercent}%` }}
+                      className="bg-red-500 h-full transition-all duration-500"
+                    ></div>
+                  </div>
+                </div>
+              )}
+
+              {/* SDE Bar */}
+              <div className="pt-2 border-t border-gray-150 dark:border-gray-800">
+                <div className="flex justify-between items-center text-xs font-extrabold text-brand-blue-700 dark:text-brand-blue-400 mb-1">
+                  <span>Normalized SDE</span>
+                  <span className="font-mono text-sm">{formatCurrency(normalizedSde)}</span>
+                </div>
+                <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-5 overflow-hidden flex">
+                  <div 
+                    style={{ width: `${chartProps.sdePercent}%` }}
+                    className="bg-gradient-to-r from-brand-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500 shadow-sm"
+                  ></div>
+                </div>
+                <div className="flex justify-between items-center mt-1.5 text-3xs text-gray-400">
+                  <span>Operating Cash baseline</span>
+                  <span className="font-bold text-green-600 dark:text-green-400">SDE multiple valuation anchor</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* SDE Output Widget */}
           <div className="bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-xs">
             <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">

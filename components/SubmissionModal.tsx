@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AgentModule, AgentResult, Deal } from '../types';
-import { runAgent } from '../services/geminiService';
+import { runAgent } from '../actions/geminiActions';
 import { AGENT_MODULES } from '../constants';
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
 import { SpinnerIcon, PaperAirplaneIcon } from './icons';

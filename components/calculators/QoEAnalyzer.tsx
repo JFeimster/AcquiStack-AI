@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { QoEData, QoEAddBack, Deal } from '../../types';
-import { analyzeQoE } from '../../services/geminiService';
+import { analyzeQoE } from '../../actions/geminiActions';
 import { QoEIcon, PlusCircleIcon, TrashIcon, SpinnerIcon, SparklesIcon } from '../icons';
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
 

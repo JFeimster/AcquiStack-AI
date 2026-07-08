@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { IndustryMultipleRange } from '../../types';
-import { getIndustryMultiple } from '../../services/geminiService';
+import { getIndustryMultiple } from '../../actions/geminiActions';
 import { SpinnerIcon, SparklesIcon } from '../icons';
 
 const BusinessValuationCalculator: React.FC = () => {

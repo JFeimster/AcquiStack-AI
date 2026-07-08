@@ -209,28 +209,34 @@ export const runAgent = async (agent: AgentModule, context: any, userInput: stri
   }
 };
 
-const fileToGenerativePart = async (file: File) => {
+const fileToGenerativePart = async (fileInput: File | { base64Content: string; mimeType: string }) => {
+  if ('base64Content' in fileInput) {
+    return {
+      inlineData: { data: fileInput.base64Content, mimeType: fileInput.mimeType },
+    };
+  }
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(fileInput);
   });
   return {
-    inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
+    inlineData: { data: await base64EncodedDataPromise, mimeType: fileInput.type },
   };
 };
 
-export const analyzeDocument = async (file: File): Promise<DocumentAnalysisResult> => {
+export const analyzeDocument = async (fileInput: File | { base64Content: string; mimeType: string }): Promise<DocumentAnalysisResult> => {
   if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set.");
   }
-  if (!file.type.startsWith('application/pdf')) {
+  const mimeType = 'base64Content' in fileInput ? fileInput.mimeType : fileInput.type;
+  if (!mimeType.startsWith('application/pdf')) {
     throw new Error("Only PDF files are supported for analysis.");
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const filePart = await fileToGenerativePart(file);
+    const filePart = await fileToGenerativePart(fileInput);
 
     const prompt = "Analyze the attached business document (likely a CIM or financial overview). Extract key information, provide a concise summary, and identify potential risks. Structure the output according to the provided JSON schema.";
 
@@ -282,13 +288,14 @@ export const analyzeDocument = async (file: File): Promise<DocumentAnalysisResul
   }
 };
 
-export const analyzeVDRDocument = async (file: File): Promise<DocumentAnalysis> => {
+export const analyzeVDRDocument = async (fileInput: File | { base64Content: string; mimeType: string }): Promise<DocumentAnalysis> => {
     if (!process.env.API_KEY) throw new Error("API_KEY environment variable is not set.");
-    if (!file.type.startsWith('application/pdf')) throw new Error("Only PDF files are supported for analysis.");
+    const mimeType = 'base64Content' in fileInput ? fileInput.mimeType : fileInput.type;
+    if (!mimeType.startsWith('application/pdf')) throw new Error("Only PDF files are supported for analysis.");
 
     try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const filePart = await fileToGenerativePart(file);
+        const filePart = await fileToGenerativePart(fileInput);
         
         const prompt = `You are a due diligence analyst. Analyze the attached document (e.g., CIM, financial statement, legal agreement). Provide a concise summary, identify 3-5 key risks or discussion points, and extract any critical clauses related to change of control, liabilities, or payment terms. Structure the output as JSON.`;
 

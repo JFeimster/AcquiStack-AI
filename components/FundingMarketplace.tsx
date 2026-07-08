@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { AffiliateLender, Deal, LenderRecommendation } from '../types';
-import { getLenderMatches } from '../services/geminiService';
+import { getLenderMatches } from '../actions/geminiActions';
 import { LenderMatchAIIcon, SparklesIcon, SpinnerIcon } from './icons';
 
 interface FundingMarketplaceProps {

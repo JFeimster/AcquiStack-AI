@@ -5,7 +5,19 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { AGENT_MODULES, WORKFLOW_MODULES, initialDeals, initialComments, initialTasks, dealRoomUsers, currentUser as initialUser, initialDocuments, initialDiligenceChecklist, AFFILIATE_LENDERS } from './constants';
 import { AgentModule, Deal, AgentResult, DocumentAnalysisResult, Comment, Task, User, SharedDocument, VDRChatMessage, UserRole, AIRecommendation, WorkflowModule, DiligenceItem, Scenario } from './types';
-import { runAgent, analyzeDocument, analyzeVDRDocument, queryVDR, suggestTasksFromDocument, analyzeCommentForRisks, getAIRecommendations, suggestDealTasks } from './services/geminiService';
+import { runAgent, analyzeDocument, analyzeVDRDocument, queryVDR, suggestTasksFromDocument, analyzeCommentForRisks, getAIRecommendations, suggestDealTasks } from './actions/geminiActions';
+import { 
+  fetchDealsFromApi, 
+  addDealToApi, 
+  updateDealInApi, 
+  deleteDealFromApi, 
+  fetchCommentsFromApi, 
+  addCommentToApi, 
+  fetchTasksFromApi, 
+  saveTaskToApi, 
+  fetchDocumentsFromApi, 
+  saveDocumentToApi 
+} from './actions/dealActions';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import AgentCard from './components/AgentCard';
@@ -28,6 +40,11 @@ import ReportModal from './components/ReportModal';
 import SubmissionModal from './components/SubmissionModal';
 import FundingMarketplace from './components/FundingMarketplace';
 import ToolsCalculators from './components/ToolsCalculators';
+import MarketingLandingPage from './components/MarketingLandingPage';
+import DealMarketplace from './components/DealMarketplace';
+import CapitalStackSandbox from './components/CapitalStackSandbox';
+import CimQuickScan from './components/CimQuickScan';
+import SbaAcademy from './components/SbaAcademy';
 
 const flattenTasksForApp = (tasks: Task[]): Task[] => {
     let allTasks: Task[] = [];
@@ -51,6 +68,7 @@ const App: React.FC = () => {
   // New state for multi-deal management
   const [deals, setDeals] = useState<Deal[]>(initialDeals);
   const [currentDeal, setCurrentDeal] = useState<Deal | null>(null);
+  const [landingTab, setLandingTab] = useState<string>('dashboard');
 
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('analysis');
@@ -81,6 +99,53 @@ const App: React.FC = () => {
   const [documents, setDocuments] = useState<SharedDocument[]>(initialDocuments);
   const [vdrChatHistory, setVdrChatHistory] = useState<VDRChatMessage[]>([]);
   const [isVdrQueryLoading, setIsVdrQueryLoading] = useState(false);
+
+  // Load data from API on mount
+  useEffect(() => {
+    const loadPersistentData = async () => {
+      try {
+        const [apiDeals, apiComments, apiTasks, apiDocs] = await Promise.all([
+          fetchDealsFromApi(),
+          fetchCommentsFromApi(),
+          fetchTasksFromApi(),
+          fetchDocumentsFromApi()
+        ]);
+        setDeals(apiDeals);
+        setComments(apiComments);
+        setTasks(apiTasks);
+        setDocuments(apiDocs);
+      } catch (err) {
+        console.error("Failed to load initial data from server APIs:", err);
+      }
+    };
+    loadPersistentData();
+  }, []);
+
+  // Debounced auto-save for currentDeal changes (form fields)
+  const saveTimeoutRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!currentDeal) return;
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = window.setTimeout(async () => {
+      try {
+        const updated = await updateDealInApi(currentDeal);
+        // Sync our local list with the updated deal from the server
+        setDeals(prevDeals => prevDeals.map(d => d.id === updated.id ? updated : d));
+      } catch (err) {
+        console.error("Auto-save failed:", err);
+      }
+    }, 1000); // 1-second debounce
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [currentDeal]);
 
   // FIX: Moved handleSelectAgent before the useEffect that uses it to fix block-scoped variable error.
   const handleSelectAgent = useCallback((agent: AgentModule) => {
@@ -306,10 +371,13 @@ const App: React.FC = () => {
 
   // Task Management Handlers
   const handleUpdateTask = useCallback((taskId: number, updates: Partial<Omit<Task, 'id' | 'subtasks'>>) => {
+      let updatedTaskRef: Task | null = null;
       const updateRecursively = (tasksToSearch: Task[]): Task[] => {
           return tasksToSearch.map(task => {
               if (task.id === taskId) {
-                  return { ...task, ...updates };
+                  const updated = { ...task, ...updates };
+                  updatedTaskRef = updated;
+                  return updated;
               }
               if (task.subtasks) {
                   return { ...task, subtasks: updateRecursively(task.subtasks) };
@@ -317,7 +385,13 @@ const App: React.FC = () => {
               return task;
           });
       };
-      setTasks(prevTasks => updateRecursively(prevTasks));
+      setTasks(prevTasks => {
+          const next = updateRecursively(prevTasks);
+          if (updatedTaskRef) {
+              saveTaskToApi(updatedTaskRef).catch(err => console.error("Failed to save task update:", err));
+          }
+          return next;
+      });
   }, []);
 
   const handleAddTask = useCallback((text: string, parentId: number | null = null, assigneeId?: number, source: 'user' | 'ai' = 'user') => {
@@ -347,6 +421,8 @@ const App: React.FC = () => {
           };
           setTasks(prevTasks => addRecursively(prevTasks));
       }
+
+      saveTaskToApi(newTask).catch(err => console.error("Failed to save task:", err));
   }, [users]);
 
   const handleDeleteTask = useCallback((taskId: number) => {
@@ -373,9 +449,11 @@ const App: React.FC = () => {
     const newComment: Comment = { id: newCommentId, user: currentUser, text, timestamp: new Date().toISOString() };
     setComments(prev => [...prev, newComment]);
 
-    const riskResult = await analyzeCommentForRisks(text);
-    if (riskResult.isRisk) {
-      setComments(prev => prev.map(c => c.id === newCommentId ? { ...c, risk: riskResult } : c));
+    try {
+      const savedComment = await addCommentToApi(newComment);
+      setComments(prev => prev.map(c => c.id === newCommentId ? savedComment : c));
+    } catch (err) {
+      console.error("Failed to persist comment to database:", err);
     }
   };
   
@@ -392,8 +470,12 @@ const App: React.FC = () => {
     setDocuments(prev => [newFile, ...prev]);
 
     try {
+        await saveDocumentToApi(newFile);
+        
         const analysisResult = await analyzeVDRDocument(file);
-        setDocuments(prev => prev.map(doc => doc.id === newDocId ? { ...doc, analysisState: 'complete', analysis: analysisResult } : doc));
+        const finalDoc: SharedDocument = { ...newFile, analysisState: 'complete', analysis: analysisResult };
+        setDocuments(prev => prev.map(doc => doc.id === newDocId ? finalDoc : doc));
+        await saveDocumentToApi(finalDoc);
         
         const suggestedTasks = await suggestTasksFromDocument(file.name, analysisResult.summary);
         if (suggestedTasks.length > 0) {
@@ -482,6 +564,24 @@ const App: React.FC = () => {
     }
   };
 
+  const handleImportDealFromMarketplaceOrScanner = async (dealPayload: Omit<Deal, 'id'>) => {
+    const newDeal: Deal = {
+      ...dealPayload,
+      id: Date.now()
+    };
+    try {
+      const savedDeal = await addDealToApi(newDeal);
+      setDeals(prev => [...prev, savedDeal]);
+      setCurrentDeal(savedDeal);
+    } catch (err) {
+      console.error("Failed to import deal into database:", err);
+      setDeals(prev => [...prev, newDeal]);
+      setCurrentDeal(newDeal);
+    }
+    setLandingTab('dashboard'); // reset landing tab to dashboard
+    setToastMessage(`Deal "${newDeal.deal_name}" successfully imported into your pipeline!`);
+  };
+
   const handleSelectDeal = (dealId: number) => {
     const deal = deals.find(d => d.id === dealId);
     if (deal) {
@@ -493,7 +593,7 @@ const App: React.FC = () => {
     setCurrentDeal(null);
   };
 
-  const handleCreateNewDeal = () => {
+  const handleCreateNewDeal = async () => {
     const newDeal: Deal = {
         id: Date.now(),
         status: 'Initial Analysis',
@@ -530,8 +630,15 @@ const App: React.FC = () => {
         diligenceItems: initialDiligenceChecklist.map(item => ({...item, id: Date.now() + Math.random()})),
         scenarios: [],
     };
-    setCurrentDeal(newDeal);
-    setDeals(prev => [...prev, newDeal]);
+    try {
+      const savedDeal = await addDealToApi(newDeal);
+      setCurrentDeal(savedDeal);
+      setDeals(prev => [...prev, savedDeal]);
+    } catch (err) {
+      console.error("Failed to persist newly created deal:", err);
+      setCurrentDeal(newDeal);
+      setDeals(prev => [...prev, newDeal]);
+    }
   };
   
   const handleToggleTask = useCallback((taskId: number) => {
@@ -618,17 +725,78 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      <Header onDealChange={handleCurrentDealChange as any} currentDeal={currentDeal} onBackToDashboard={handleBackToDashboard} />
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 animate-fadeIn">
+      <Header 
+        onDealChange={handleCurrentDealChange as any} 
+        currentDeal={currentDeal} 
+        onBackToDashboard={handleBackToDashboard} 
+        deals={deals}
+        onSelectDeal={handleSelectDeal}
+        setActiveTab={setActiveTab}
+        landingTab={landingTab}
+        setLandingTab={setLandingTab}
+      />
+      
+      {/* Premium Dashboard-level Top Navigation (Context-aware: only visible when a specific listing is selected) */}
+      {currentDeal && (
+        <div id="dashboard-top-nav-bar" className="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 shadow-xs z-10">
+          <div className="max-w-7xl mx-auto px-6 md:px-8 flex flex-col md:flex-row md:items-center md:justify-between py-2 md:py-0 gap-3">
+            {/* Active Listing Badge & Details */}
+            <div className="flex items-center space-x-3.5 py-3 md:py-4">
+              <span className="inline-flex items-center rounded-md bg-brand-blue-50 dark:bg-brand-blue-950/50 px-2.5 py-1 text-xs font-bold text-brand-blue-700 dark:text-brand-blue-400 ring-1 ring-inset ring-brand-blue-700/10 dark:ring-brand-blue-400/20">
+                ACTIVE DEAL
+              </span>
+              <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
+                <span className="font-bold text-gray-900 dark:text-white text-sm md:text-base truncate max-w-[180px] md:max-w-[280px]" title={currentDeal.deal_name}>
+                  {currentDeal.deal_name}
+                </span>
+                <div className="flex items-center space-x-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                  <span className="text-3xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider font-mono">
+                    {currentDeal.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {/* Nav tabs for tools, agents, scenarios, deal room, reporting */}
+            <div className="flex items-center">
+              <Tabs activeTab={activeTab} onTabClick={setActiveTab} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8">
           {!currentDeal ? (
-            <DealDashboard deals={deals} tasks={tasks} onSelectDeal={handleSelectDeal} onCreateNewDeal={handleCreateNewDeal} />
+            <div className="max-w-7xl mx-auto">
+              {landingTab === 'dashboard' && (
+                <DealDashboard deals={deals} tasks={tasks} onSelectDeal={handleSelectDeal} onCreateNewDeal={handleCreateNewDeal} />
+              )}
+              {landingTab === 'landing' && (
+                <MarketingLandingPage 
+                  onStartStructuring={() => setLandingTab('dashboard')} 
+                  onViewSandbox={() => setLandingTab('playground')} 
+                  onViewScanner={() => setLandingTab('scanner')} 
+                />
+              )}
+              {landingTab === 'playground' && (
+                <CapitalStackSandbox />
+              )}
+              {landingTab === 'scanner' && (
+                <CimQuickScan onImportDeal={handleImportDealFromMarketplaceOrScanner} />
+              )}
+              {landingTab === 'marketplace' && (
+                <DealMarketplace onImportDeal={handleImportDealFromMarketplaceOrScanner} existingDeals={deals} />
+              )}
+              {landingTab === 'academy' && (
+                <SbaAcademy />
+              )}
+            </div>
           ) : (
-            <>
-              <Tabs activeTab={activeTab} onTabClick={setActiveTab} />
-              <div className="mt-8">
+            <div className="max-w-7xl mx-auto">
+              <div className="mt-2">
                 {activeTab === 'analysis' && (
                   <>
                     <DealInfoForm deal={currentDeal} onDealChange={handleCurrentDealChange as any} />
@@ -685,7 +853,7 @@ const App: React.FC = () => {
                   />
                 )}
                  {activeTab === 'tools' && (
-                  <ToolsCalculators />
+                  <ToolsCalculators currentDeal={currentDeal} />
                 )}
                 {activeTab === 'funding' && (
                   <FundingMarketplace 
@@ -700,7 +868,7 @@ const App: React.FC = () => {
                   />
                 )}
               </div>
-            </>
+            </div>
           )}
         </main>
       </div>
